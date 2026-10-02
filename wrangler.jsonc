@@ -1,0 +1,17 @@
+{
+  "name": "test22-en",
+  "main": "worker.js",
+  "compatibility_date": "2026-10-01",
+  "assets": {
+    "directory": ".",
+    "binding": "ASSETS",
+    "run_worker_first": ["/messages", "/login", "/logout"]
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "guestbook",
+      "database_id": "在这里填你的-database_id"
+    }
+  ]
+}

@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Type" content="text/html;">
+  <meta name="format-detection" content="telephone=no">
+  <meta charset="UTF-8">
+  <title>简单留言板</title>
+  <style>
+    html {
+      -webkit-text-size-adjust: 100%;
+      text-size-adjust: 100%;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Helvetica Neue", sans-serif;
+      font-size: 16px;
+      line-height: 1.5;
+      max-width: 600px;
+      margin: 0 auto;
+      /* 适配 iPhone 刘海 / 底部安全区，不顶到屏幕边 */
+      padding: max(16px, env(safe-area-inset-top))
+               max(16px, env(safe-area-inset-right))
+               max(16px, env(safe-area-inset-bottom))
+               max(16px, env(safe-area-inset-left));
+      color: #222;
+    }
+    h2 { font-size: 22px; margin: 8px 0 16px; }
+    h3 { font-size: 18px; margin: 18px 0 8px; }
+
+    input, textarea {
+      width: 100%;
+      margin: 8px 0;
+      padding: 12px 14px;
+      box-sizing: border-box;
+      font-size: 16px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      background: #fff;
+    }
+    textarea { resize: vertical; }
+
+    /* 通用按钮：收一下纵向高度，不再又长又扁 */
+    button {
+      width: 100%;
+      margin: 10px 0;
+      padding: 13px 14px;
+      box-sizing: border-box;
+      font-size: 16px;
+      font-weight: 600;
+      line-height: 1.2;
+      cursor: pointer;
+      background: #007bff;
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      -webkit-appearance: none;
+      appearance: none;
+    }
+    button:hover { background: #0056b3; }
+    button:active { background: #00468f; } /* 点按反馈，iPhone 上更跟手 */
+
+    .hidden { display: none; }
+    .msg {
+      border-bottom: 1px solid #eee;
+      padding: 10px 0;
+      word-break: break-word;
+    }
+    .msg strong { color: #333; }
+    #login-msg, #reg-msg { margin-top: 6px; font-size: 14px; min-height: 18px; }
+    #welcome-text { color: #007bff; font-weight: bold; margin: 10px 0; }
+    a { color: #007bff; }
+  </style>
+</head>
+<body>
+  <h2>📝 简单留言板</h2>
+
+  <div id="auth-section">
+    <div id="login-form">
+      <h3>登录</h3>
+      <input type="text" id="login-user" placeholder="账号">
+      <input type="password" id="login-pass" placeholder="密码">
+      <button onclick="login()">登录</button>
+      <p>没有账号？<a href="#" onclick="toggleReg()">点击注册</a></p>
+      <p id="login-msg"></p>
+    </div>
+
+    <div id="reg-form" class="hidden">
+      <h3>注册账号</h3>
+      <input type="text" id="reg-user" placeholder="新账号">
+      <input type="password" id="reg-pass" placeholder="新密码">
+      <button onclick="register()">注册</button>
+      <p>已有账号？<a href="#" onclick="toggleReg()">返回登录</a></p>
+      <p id="reg-msg"></p>
+    </div>
+  </div>
+
+  <div id="board-section" class="hidden">
+    <p>✅ 已登录！<a href="/logout">退出</a></p>
+    <p id="welcome-text"></p>
+    <h3>发表留言</h3>
+    <input type="hidden" id="msg-name">
+    <textarea id="msg-content" placeholder="说点什么吧..." rows="4"></textarea>
+    <button onclick="postMsg()">提交留言</button>
+    <h3>留言列表</h3>
+    <div id="messages-list">加载中...</div>
+  </div>
+
+  <script charset="utf-8">
+    function toggleReg() {
+      document.getElementById('login-form').classList.toggle('hidden');
+      document.getElementById('reg-form').classList.toggle('hidden');
+      document.getElementById('login-msg').innerText = '';
+      document.getElementById('reg-msg').innerText = '';
+    }
+
+    async function register() {
+      const username = document.getElementById('reg-user').value;
+      const password = document.getElementById('reg-pass').value;
+      const msgEl = document.getElementById('reg-msg');
+
+      const res = await fetch('/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'register', username, password })
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if(res.ok) {
+        msgEl.style.color = 'green';
+        msgEl.innerText = '注册成功，请登录！';
+        setTimeout(toggleReg, 1500);
+      } else {
+        msgEl.style.color = 'red';
+        msgEl.innerText = data.message || '注册失败';
+      }
+    }
+
+    async function login() {
+      const username = document.getElementById('login-user').value;
+      const password = document.getElementById('login-pass').value;
+      const msgEl = document.getElementById('login-msg');
+
+      const res = await fetch('/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'login', username, password })
+      });
+
+      if(res.ok) {
+        // 延迟刷新：等待服务端 Set-Cookie 落盘，否则刷新后仍是未登录状态
+        setTimeout(() => location.reload(), 200);
+      } else {
+        const data = await res.json().catch(() => ({}));
+        msgEl.style.color = 'red';
+        msgEl.innerText = data.message || '登录失败';
+      }
+    }
+
+    async function postMsg() {
+      const content = document.getElementById('msg-content').value;
+      if (!content.trim()) { alert('请输入留言内容'); return; }
+
+      const res = await fetch('/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'message', content })
+      });
+
+      if (res.ok) {
+        document.getElementById('msg-content').value = '';
+        loadMessages();
+      } else {
+        const data = await res.json().catch(() => ({}));
+        alert(data.message || '发表失败');
+      }
+    }
+
+    async function loadMessages() {
+      const res = await fetch('/messages');
+      const data = await res.json();
+
+      if (data.loggedIn) {
+        document.getElementById('auth-section').classList.add('hidden');
+        document.getElementById('board-section').classList.remove('hidden');
+
+        // 优先用接口返回的 username，避免 cookie 中文在部分浏览器解码异常
+        let username = data.username || '';
+        if (!username) {
+          const cookies = document.cookie.split(';');
+          for (let c of cookies) {
+            const [key, value] = c.trim().split('=');
+            if (key === 'username') { username = decodeURIComponent(value); break; }
+          }
+        }
+        document.getElementById('msg-name').value = username;
+        document.getElementById('welcome-text').innerText = username ? `👋 欢迎，${username}！` : '';
+
+        const list = document.getElementById('messages-list');
+        if (data.messages && data.messages.length > 0) {
+          list.innerHTML = data.messages.map(m =>
+            `<div class="msg"><strong>${escapeHtml(m.name)}:</strong> ${escapeHtml(m.content)}</div>`
+          ).join('');
+        } else {
+          list.innerHTML = '暂无留言';
+        }
+      } else {
+        document.getElementById('auth-section').classList.remove('hidden');
+        document.getElementById('board-section').classList.add('hidden');
+      }
+    }
+
+    function escapeHtml(text) {
+      const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+      return text.replace(/[&<>"']/g, m => map[m]);
+    }
+
+    loadMessages();
+  </script>
+</body>
+</html>
