@@ -1,5 +1,5 @@
 {
-  "name": "test22-en",
+  "name": "test23-en",
   "main": "worker.js",
   "compatibility_date": "2026-10-01",
   "assets": {
@@ -10,8 +10,8 @@
   "d1_databases": [
     {
       "binding": "DB",
-      "database_name": "guestbook",
-      "database_id": "在这里填你的-database_id"
+      "database_name": "guestbook_prod",
+      "database_id": "6105aebf-17c8-4304-b0e3-2387d0439888"
     }
   ]
 }
